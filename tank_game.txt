@@ -1,0 +1,338 @@
+#include <GL/glut.h>
+#include <cmath>
+#include <vector>
+#include <iostream>
+
+// Constants
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+const float PI = 3.14159265f;
+const float TANK_SPEED = 5.0f;
+const float BULLET_SPEED = 10.0f;
+const float ROTATION_SPEED = 5.0f;
+
+// Global variables
+float tankX = WINDOW_WIDTH / 2;
+float tankY = WINDOW_HEIGHT / 2;
+float tankAngle = 0.0f;
+bool keyStates[256] = {false};
+bool gameOver = false;
+int score = 0;
+
+// Bullet structure
+struct Bullet {
+    float x, y;
+    float angle;
+    bool active;
+    
+    Bullet(float startX, float startY, float startAngle) 
+        : x(startX), y(startY), angle(startAngle), active(true) {}
+};
+
+// Enemy structure
+struct Enemy {
+    float x, y;
+    bool active;
+    
+    Enemy(float startX, float startY) 
+        : x(startX), y(startY), active(true) {}
+};
+
+std::vector<Bullet> bullets;
+std::vector<Enemy> enemies;
+
+// Function to draw a circle
+void drawCircle(float cx, float cy, float radius, int segments) {
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx, cy);
+    for (int i = 0; i <= segments; i++) {
+        float theta = 2.0f * PI * float(i) / float(segments);
+        float x = radius * cosf(theta);
+        float y = radius * sinf(theta);
+        glVertex2f(cx + x, cy + y);
+    }
+    glEnd();
+}
+
+// Function to draw a rectangle
+void drawRectangle(float x, float y, float width, float height) {
+    glBegin(GL_QUADS);
+    glVertex2f(x, y);
+    glVertex2f(x + width, y);
+    glVertex2f(x + width, y + height);
+    glVertex2f(x, y + height);
+    glEnd();
+}
+
+// Function to draw the tank
+void drawTank() {
+    glPushMatrix();
+    glTranslatef(tankX, tankY, 0.0f);
+    glRotatef(tankAngle, 0.0f, 0.0f, 1.0f);
+    
+    // Tank body (rectangle)
+    glColor3f(0.2f, 0.6f, 0.2f);
+    drawRectangle(-20.0f, -15.0f, 40.0f, 30.0f);
+    
+    // Tank turret (circle)
+    glColor3f(0.1f, 0.4f, 0.1f);
+    drawCircle(0.0f, 0.0f, 15.0f, 20);
+    
+    // Tank cannon (rectangle)
+    glColor3f(0.3f, 0.3f, 0.3f);
+    drawRectangle(0.0f, -3.0f, 35.0f, 6.0f);
+    
+    glPopMatrix();
+}
+
+// Function to draw the bullets
+void drawBullets() {
+    glColor3f(1.0f, 0.0f, 0.0f);
+    for (const auto& bullet : bullets) {
+        if (bullet.active) {
+            drawCircle(bullet.x, bullet.y, 5.0f, 10);
+        }
+    }
+}
+
+// Function to draw enemies
+void drawEnemies() {
+    glColor3f(0.8f, 0.2f, 0.2f);
+    for (const auto& enemy : enemies) {
+        if (enemy.active) {
+            drawCircle(enemy.x, enemy.y, 15.0f, 20);
+        }
+    }
+}
+
+// Function to draw the HUD
+void drawHUD() {
+    // Display score
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glRasterPos2f(10, WINDOW_HEIGHT - 20);
+    std::string scoreText = "Score: " + std::to_string(score);
+    for (char c : scoreText) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+    }
+    
+    // Game over message
+    if (gameOver) {
+        glColor3f(1.0f, 0.0f, 0.0f);
+        std::string gameOverText = "GAME OVER! Press 'R' to restart.";
+        glRasterPos2f(WINDOW_WIDTH / 2 - 150, WINDOW_HEIGHT / 2);
+        for (char c : gameOverText) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+        }
+    }
+}
+
+// Function to update bullet positions
+void updateBullets() {
+    for (auto& bullet : bullets) {
+        if (bullet.active) {
+            bullet.x += BULLET_SPEED * cos(bullet.angle * PI / 180.0f);
+            bullet.y += BULLET_SPEED * sin(bullet.angle * PI / 180.0f);
+            
+            // Check if bullet is out of bounds
+            if (bullet.x < 0 || bullet.x > WINDOW_WIDTH || 
+                bullet.y < 0 || bullet.y > WINDOW_HEIGHT) {
+                bullet.active = false;
+            }
+            
+            // Check for collision with enemies
+            for (auto& enemy : enemies) {
+                if (enemy.active) {
+                    float distance = sqrt(pow(bullet.x - enemy.x, 2) + pow(bullet.y - enemy.y, 2));
+                    if (distance < 20.0f) {  // 5 (bullet radius) + 15 (enemy radius)
+                        enemy.active = false;
+                        bullet.active = false;
+                        score += 10;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Remove inactive bullets
+    bullets.erase(
+        std::remove_if(bullets.begin(), bullets.end(), 
+            [](const Bullet& b) { return !b.active; }),
+        bullets.end()
+    );
+}
+
+// Function to create new enemies
+void createEnemy() {
+    // Randomly spawn enemies on the edges
+    int side = rand() % 4;
+    float x, y;
+    
+    switch (side) {
+        case 0: // Top
+            x = rand() % WINDOW_WIDTH;
+            y = 0;
+            break;
+        case 1: // Right
+            x = WINDOW_WIDTH;
+            y = rand() % WINDOW_HEIGHT;
+            break;
+        case 2: // Bottom
+            x = rand() % WINDOW_WIDTH;
+            y = WINDOW_HEIGHT;
+            break;
+        case 3: // Left
+            x = 0;
+            y = rand() % WINDOW_HEIGHT;
+            break;
+    }
+    
+    enemies.push_back(Enemy(x, y));
+}
+
+// Function to update enemy positions
+void updateEnemies() {
+    // Move enemies towards the tank
+    for (auto& enemy : enemies) {
+        if (enemy.active) {
+            float dx = tankX - enemy.x;
+            float dy = tankY - enemy.y;
+            float distance = sqrt(dx * dx + dy * dy);
+            
+            if (distance > 0) {
+                enemy.x += dx / distance * 1.5f;
+                enemy.y += dy / distance * 1.5f;
+            }
+            
+            // Check collision with tank
+            if (distance < 35.0f) {  // 15 (enemy radius) + 20 (approximate tank radius)
+                gameOver = true;
+            }
+        }
+    }
+    
+    // Remove inactive enemies
+    enemies.erase(
+        std::remove_if(enemies.begin(), enemies.end(), 
+            [](const Enemy& e) { return !e.active; }),
+        enemies.end()
+    );
+    
+    // Randomly create new enemies (about once every 100 frames)
+    if (rand() % 100 == 0 && enemies.size() < 10 && !gameOver) {
+        createEnemy();
+    }
+}
+
+// Function to update tank position based on keyboard input
+void updateTank() {
+    if (gameOver) return;
+    
+    if (keyStates['w'] || keyStates['W']) {
+        tankX += TANK_SPEED * cos(tankAngle * PI / 180.0f);
+        tankY += TANK_SPEED * sin(tankAngle * PI / 180.0f);
+    }
+    if (keyStates['s'] || keyStates['S']) {
+        tankX -= TANK_SPEED * cos(tankAngle * PI / 180.0f);
+        tankY -= TANK_SPEED * sin(tankAngle * PI / 180.0f);
+    }
+    if (keyStates['a'] || keyStates['A']) {
+        tankAngle -= ROTATION_SPEED;
+    }
+    if (keyStates['d'] || keyStates['D']) {
+        tankAngle += ROTATION_SPEED;
+    }
+    
+    // Keep tank within window bounds
+    tankX = std::max(20.0f, std::min(tankX, WINDOW_WIDTH - 20.0f));
+    tankY = std::max(15.0f, std::min(tankY, WINDOW_HEIGHT - 15.0f));
+}
+
+// Function to reset the game
+void resetGame() {
+    tankX = WINDOW_WIDTH / 2;
+    tankY = WINDOW_HEIGHT / 2;
+    tankAngle = 0.0f;
+    bullets.clear();
+    enemies.clear();
+    score = 0;
+    gameOver = false;
+}
+
+// Display callback function
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    drawTank();
+    drawBullets();
+    drawEnemies();
+    drawHUD();
+    
+    glutSwapBuffers();
+}
+
+// Reshape callback function
+void reshape(int width, int height) {
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+// Timer callback function for animation
+void timer(int value) {
+    if (!gameOver) {
+        updateTank();
+        updateBullets();
+        updateEnemies();
+    }
+    
+    glutPostRedisplay();
+    glutTimerFunc(16, timer, 0);  // ~60fps
+}
+
+// Keyboard callback function
+void keyboard(unsigned char key, int x, int y) {
+    keyStates[key] = true;
+    
+    if (key == ' ' && !gameOver) {
+        // Fire a bullet
+        float bulletX = tankX + 35.0f * cos(tankAngle * PI / 180.0f);
+        float bulletY = tankY + 35.0f * sin(tankAngle * PI / 180.0f);
+        bullets.push_back(Bullet(bulletX, bulletY, tankAngle));
+    }
+    
+    if ((key == 'r' || key == 'R') && gameOver) {
+        resetGame();
+    }
+    
+    if (key == 27) {  // ESC key
+        exit(0);
+    }
+}
+
+// Keyboard up callback function
+void keyboardUp(unsigned char key, int x, int y) {
+    keyStates[key] = false;
+}
+
+// Main function
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutCreateWindow("Tank Game");
+    
+    glClearColor(0.0f, 0.0f, 0.2f, 1.0f);
+    
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutTimerFunc(0, timer, 0);
+    glutKeyboardFunc(keyboard);
+    glutKeyboardUpFunc(keyboardUp);
+    
+    resetGame();
+    
+    glutMainLoop();
+    return 0;
+}
