@@ -1,0 +1,136 @@
+#include <GL/glut.h>
+#include <iostream>
+#include <cmath>
+
+// Window dimensions
+const int WINDOW_WIDTH = 600;
+const int WINDOW_HEIGHT = 600;
+
+// Scale factor to make the line visible in the window
+const int SCALE = 20;
+
+// Function to plot a pixel at (x, y)
+void plotPixel(int x, int y) {
+    // Convert from Cartesian to screen coordinates
+    int screenX = WINDOW_WIDTH / 2 + x * SCALE;
+    int screenY = WINDOW_HEIGHT / 2 - y * SCALE;
+    
+    // Draw the pixel as a small square for better visibility
+    glBegin(GL_POINTS);
+    glVertex2i(screenX, screenY);
+    glEnd();
+}
+
+// Bresenham's line algorithm for all slopes
+void bresenhamLine(int x1, int y1, int x2, int y2) {
+    // Calculate differences and absolute differences
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    
+    // Determine the direction of increments
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    
+    // Determine whether x or y changes faster
+    bool isSwap = false;
+    
+    if (dy > dx) {
+        // Swap dx and dy for steep lines (|m| > 1)
+        std::swap(dx, dy);
+        isSwap = true;
+    }
+    
+    // Initialize the decision parameter
+    int error = 2 * dy - dx;
+    int x = x1;
+    int y = y1;
+    
+    // Draw the line
+    for (int i = 0; i <= dx; i++) {
+        // Plot the current pixel
+        plotPixel(x, y);
+        
+        if (error >= 0) {
+            if (isSwap) x += sx; // If swapped, change x when error is positive
+            else y += sy;        // Otherwise change y
+            error -= 2 * dx;     // Update error term
+        }
+        
+        if (isSwap) y += sy;    // If swapped, always change y
+        else x += sx;           // Otherwise always change x
+        
+        error += 2 * dy;        // Update error term
+    }
+}
+
+// Draw coordinate axes
+void drawAxes() {
+    glBegin(GL_LINES);
+    
+    // X-axis
+    glColor3f(0.5, 0.5, 0.5);
+    glVertex2i(0, WINDOW_HEIGHT / 2);
+    glVertex2i(WINDOW_WIDTH, WINDOW_HEIGHT / 2);
+    
+    // Y-axis
+    glVertex2i(WINDOW_WIDTH / 2, 0);
+    glVertex2i(WINDOW_WIDTH / 2, WINDOW_HEIGHT);
+    
+    glEnd();
+}
+
+// Display function
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    // Draw coordinate axes
+    drawAxes();
+    
+    // Draw the line using Bresenham's algorithm
+    glColor3f(1.0, 0.0, 0.0);
+    glPointSize(5.0);
+    
+    // Draw the line from P1(0, 13) to P2(-1, 6)
+    bresenhamLine(0, 13, -1, 6);
+    
+    // Draw the endpoints with different colors
+    glColor3f(0.0, 1.0, 0.0);
+    glPointSize(7.0);
+    plotPixel(0, 13);  // P1
+    
+    glColor3f(0.0, 0.0, 1.0);
+    plotPixel(-1, 6);  // P2
+    
+    glutSwapBuffers();
+}
+
+// Initialize OpenGL settings
+void init() {
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+}
+
+// Main function
+int main(int argc, char** argv) {
+    // Initialize GLUT
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutCreateWindow("Bresenham's Line Algorithm");
+    
+    // Initialize OpenGL settings
+    init();
+    
+    // Register callbacks
+    glutDisplayFunc(display);
+    
+    // Print the endpoints
+    std::cout << "Drawing line from P1(0, 13) to P2(-1, 6)" << std::endl;
+    
+    // Enter the main loop
+    glutMainLoop();
+    
+    return 0;
+}

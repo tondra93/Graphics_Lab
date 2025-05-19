@@ -1,0 +1,143 @@
+#include <GL/glut.h>
+#include <iostream>
+#include <cmath>
+
+// Window dimensions
+const int WINDOW_WIDTH = 600;
+const int WINDOW_HEIGHT = 600;
+
+// Scale factor to make the line visible in the window
+const int SCALE = 20;
+
+// Function to plot a pixel at (x, y)
+void plotPixel(int x, int y) {
+    // Convert from Cartesian to screen coordinates
+    int screenX = WINDOW_WIDTH / 2 + x * SCALE;
+    int screenY = WINDOW_HEIGHT / 2 - y * SCALE;
+    
+    // Draw the pixel as a small square for better visibility
+    glBegin(GL_POINTS);
+    glVertex2i(screenX, screenY);
+    glEnd();
+}
+
+// Direct equation method for line drawing
+void directEquationLine(int x1, int y1, int x2, int y2) {
+    // Calculate the slope (m) of the line
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    float m = dx != 0 ? dy / dx : 0;
+    
+    // Calculate the y-intercept (b) using y = mx + b
+    float b = y1 - m * x1;
+    
+    // Check if the line is more horizontal than vertical
+    if (abs(dx) >= abs(dy)) {
+        // Process along the x-axis
+        int startX = std::min(x1, x2);
+        int endX = std::max(x1, x2);
+        
+        for (int x = startX; x <= endX; x++) {
+            // Calculate y using the line equation: y = mx + b
+            float y = m * x + b;
+            plotPixel(x, round(y));
+        }
+    } else {
+        // Process along the y-axis for steep lines
+        int startY = std::min(y1, y2);
+        int endY = std::max(y1, y2);
+        
+        for (int y = startY; y <= endY; y++) {
+            // Calculate x using the line equation: x = (y - b) / m
+            float x = (m != 0) ? (y - b) / m : x1;
+            plotPixel(round(x), y);
+        }
+    }
+}
+
+// Round a floating point value to the nearest integer
+int round(float n) {
+    return static_cast<int>(n + 0.5);
+}
+
+// Draw coordinate axes
+void drawAxes() {
+    glBegin(GL_LINES);
+    
+    // X-axis
+    glColor3f(0.5, 0.5, 0.5);
+    glVertex2i(0, WINDOW_HEIGHT / 2);
+    glVertex2i(WINDOW_WIDTH, WINDOW_HEIGHT / 2);
+    
+    // Y-axis
+    glVertex2i(WINDOW_WIDTH / 2, 0);
+    glVertex2i(WINDOW_WIDTH / 2, WINDOW_HEIGHT);
+    
+    glEnd();
+}
+
+// Display function
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    // Draw coordinate axes
+    drawAxes();
+    
+    // Draw the line using the direct equation method
+    glColor3f(1.0, 0.0, 0.0);
+    glPointSize(5.0);
+    
+    // Draw the line from P1(0, 13) to P2(-1, 6)
+    directEquationLine(0, 13, -1, 6);
+    
+    // Draw the endpoints with different colors
+    glColor3f(0.0, 1.0, 0.0);
+    glPointSize(7.0);
+    plotPixel(0, 13);  // P1
+    
+    glColor3f(0.0, 0.0, 1.0);
+    plotPixel(-1, 6);  // P2
+    
+    glutSwapBuffers();
+}
+
+// Initialize OpenGL settings
+void init() {
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+}
+
+// Main function
+int main(int argc, char** argv) {
+    // Initialize GLUT
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutCreateWindow("Direct Equation Line Algorithm");
+    
+    // Initialize OpenGL settings
+    init();
+    
+    // Register callbacks
+    glutDisplayFunc(display);
+    
+    // Print the endpoints and equation
+    std::cout << "Drawing line from P1(0, 13) to P2(-1, 6) using Direct Equation method" << std::endl;
+    
+    // Calculate and display the equation of the line
+    float dx = -1 - 0;
+    float dy = 6 - 13;
+    float m = dx != 0 ? dy / dx : 0;
+    float b = 13 - m * 0;
+    std::cout << "Line equation: y = " << m << "x + " << b << std::endl;
+    
+    std::cout << "Green point: P1(0, 13)" << std::endl;
+    std::cout << "Blue point: P2(-1, 6)" << std::endl;
+    
+    // Enter the main loop
+    glutMainLoop();
+    
+    return 0;
+}

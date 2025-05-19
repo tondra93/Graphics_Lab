@@ -1,0 +1,224 @@
+#include <GL/glut.h>
+#include <cmath>
+#include <iostream>
+#include <vector>
+
+// Circle parameters
+const int centerX = 2;
+const int centerY = 3;
+const int radius = 10;
+const double angle1 = 15.0 * M_PI / 180.0;  // 15 degrees in radians
+const double angle2 = 60.0 * M_PI / 180.0;  // 60 degrees in radians
+
+// Window dimensions
+const int windowWidth = 500;
+const int windowHeight = 500;
+
+// Structure to represent a point
+struct Point {
+    int x, y;
+    Point(int _x, int _y) : x(_x), y(_y) {}
+};
+
+// Function to plot a point
+void plotPoint(int x, int y) {
+    glBegin(GL_POINTS);
+    glVertex2i(x, y);
+    glEnd();
+}
+
+// Function to draw the coordinate system
+void drawCoordinateSystem() {
+    glColor3f(0.5, 0.5, 0.5);  // Gray color for coordinates
+    
+    // X axis
+    glBegin(GL_LINES);
+    glVertex2i(-windowWidth/2, 0);
+    glVertex2i(windowWidth/2, 0);
+    glEnd();
+    
+    // Y axis
+    glBegin(GL_LINES);
+    glVertex2i(0, -windowHeight/2);
+    glVertex2i(0, windowHeight/2);
+    glEnd();
+    
+    // Grid (optional)
+    glColor3f(0.2, 0.2, 0.2);
+    glBegin(GL_LINES);
+    for (int i = -windowWidth/2; i <= windowWidth/2; i += 10) {
+        if (i == 0) continue;  // Skip the main axes
+        glVertex2i(i, -windowHeight/2);
+        glVertex2i(i, windowHeight/2);
+    }
+    for (int i = -windowHeight/2; i <= windowHeight/2; i += 10) {
+        if (i == 0) continue;  // Skip the main axes
+        glVertex2i(-windowWidth/2, i);
+        glVertex2i(windowWidth/2, i);
+    }
+    glEnd();
+}
+
+// Midpoint Circle Algorithm
+void midpointCircleAlgorithm(int xc, int yc, int r, double startAngle, double endAngle) {
+    std::vector<Point> points;
+    
+    // Generate all points for a complete circle
+    int x = 0;
+    int y = r;
+    int p = 1 - r;
+    
+    // Store the initial point
+    points.push_back(Point(xc + x, yc + y));
+    
+    // Generate points for the first octant
+    while (x < y) {
+        x++;
+        if (p < 0) {
+            p += 2 * x + 1;
+        } else {
+            y--;
+            p += 2 * (x - y) + 1;
+        }
+        
+        // Store points from all octants
+        points.push_back(Point(xc + x, yc + y));
+        points.push_back(Point(xc - x, yc + y));
+        points.push_back(Point(xc + x, yc - y));
+        points.push_back(Point(xc - x, yc - y));
+        points.push_back(Point(xc + y, yc + x));
+        points.push_back(Point(xc - y, yc + x));
+        points.push_back(Point(xc + y, yc - x));
+        points.push_back(Point(xc - y, yc - x));
+    }
+    
+    // Draw only the points within our sector
+    glColor3f(1.0, 0.0, 0.0);  // Red for the circle sector
+    for (const auto& point : points) {
+        // Calculate the angle of this point
+        double pointAngle = atan2(point.y - yc, point.x - xc);
+        if (pointAngle < 0) {
+            pointAngle += 2 * M_PI;  // Convert to [0, 2π]
+        }
+        
+        // Check if the point is within our sector
+        if (pointAngle >= startAngle && pointAngle <= endAngle) {
+            plotPoint(point.x, point.y);
+        }
+    }
+}
+
+// Midpoint Line Algorithm
+void midpointLineAlgorithm(int x1, int y1, int x2, int y2) {
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+    
+    // Handle different slope cases
+    if (std::abs(dx) > std::abs(dy)) {
+        // If slope is less than 1
+        int p = 2 * std::abs(dy) - std::abs(dx);
+        int y = y1;
+        
+        // Ensure we draw from left to right
+        if (x1 > x2) {
+            std::swap(x1, x2);
+            std::swap(y1, y2);
+            y = y1;
+            dy = y2 - y1;
+        }
+        
+        for (int x = x1; x <= x2; x++) {
+            plotPoint(x, y);
+            if (p >= 0) {
+                if (dy > 0) y++;
+                else y--;
+                p -= 2 * std::abs(dx);
+            }
+            p += 2 * std::abs(dy);
+        }
+    } else {
+        // If slope is greater than or equal to 1
+        int p = 2 * std::abs(dx) - std::abs(dy);
+        int x = x1;
+        
+        // Ensure we draw from bottom to top
+        if (y1 > y2) {
+            std::swap(x1, x2);
+            std::swap(y1, y2);
+            x = x1;
+            dx = x2 - x1;
+        }
+        
+        for (int y = y1; y <= y2; y++) {
+            plotPoint(x, y);
+            if (p >= 0) {
+                if (dx > 0) x++;
+                else x--;
+                p -= 2 * std::abs(dy);
+            }
+            p += 2 * std::abs(dx);
+        }
+    }
+}
+
+// Display function
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    glLoadIdentity();
+    
+    // Draw coordinate system
+    drawCoordinateSystem();
+    
+    // Draw the sector (arc) using midpoint circle algorithm
+    glColor3f(1.0, 0.0, 0.0);  // Red color
+    midpointCircleAlgorithm(centerX, centerY, radius, angle1, angle2);
+    
+    // Draw the two radius lines
+    glColor3f(0.0, 0.0, 1.0);  // Blue color
+    
+    // Calculate endpoints of radius lines
+    int x1 = centerX + radius * cos(angle1);
+    int y1 = centerY + radius * sin(angle1);
+    int x2 = centerX + radius * cos(angle2);
+    int y2 = centerY + radius * sin(angle2);
+    
+    midpointLineAlgorithm(centerX, centerY, x1, y1);
+    midpointLineAlgorithm(centerX, centerY, x2, y2);
+    
+    // Draw the circle center
+    glColor3f(0.0, 1.0, 0.0);  // Green color
+    glPointSize(5.0);
+    plotPoint(centerX, centerY);
+    glPointSize(1.0);
+    
+    glutSwapBuffers();
+}
+
+// Reshape function
+void reshape(int w, int h) {
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(-w/2, w/2, -h/2, h/2);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+// Main function
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(windowWidth, windowHeight);
+    glutInitWindowPosition(100, 100);
+    glutCreateWindow("Circle Sector Scan Conversion");
+    
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(-windowWidth/2, windowWidth/2, -windowHeight/2, windowHeight/2);
+    
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    
+    glutMainLoop();
+    return 0;
+}

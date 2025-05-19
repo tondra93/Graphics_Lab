@@ -1,0 +1,129 @@
+#include <GL/glut.h>
+#include <cmath>
+
+// Window dimensions
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 800;
+
+// Constants for drawing
+const float SQUARE_SIZE = 0.8f;  // Size of the square (-0.8 to 0.8 in both x and y)
+const int ARC_SEGMENTS = 50;     // Number of segments to draw each arc
+
+// Function to draw a quarter circle arc in the specified quadrant
+void drawArc(int quadrant) {
+    float startAngle, endAngle;
+    float centerX, centerY;
+    float radius = SQUARE_SIZE / 2.0f;  // Radius of the arc
+    
+    // Define arc parameters based on quadrant
+    switch (quadrant) {
+        case 1:  // Top-right
+            centerX = SQUARE_SIZE / 2.0f;
+            centerY = SQUARE_SIZE / 2.0f;
+            startAngle = M_PI;
+            endAngle = 3.0f * M_PI / 2.0f;
+            break;
+        case 2:  // Top-left
+            centerX = -SQUARE_SIZE / 2.0f;
+            centerY = SQUARE_SIZE / 2.0f;
+            startAngle = 3.0f * M_PI / 2.0f;
+            endAngle = 2.0f * M_PI;
+            break;
+        case 3:  // Bottom-left
+            centerX = -SQUARE_SIZE / 2.0f;
+            centerY = -SQUARE_SIZE / 2.0f;
+            startAngle = 0.0f;
+            endAngle = M_PI / 2.0f;
+            break;
+        case 4:  // Bottom-right
+            centerX = SQUARE_SIZE / 2.0f;
+            centerY = -SQUARE_SIZE / 2.0f;
+            startAngle = M_PI / 2.0f;
+            endAngle = M_PI;
+            break;
+        default:
+            return;
+    }
+    
+    // Draw the arc
+    glBegin(GL_LINE_STRIP);
+    float angleIncrement = (endAngle - startAngle) / ARC_SEGMENTS;
+    for (int i = 0; i <= ARC_SEGMENTS; i++) {
+        float angle = startAngle + i * angleIncrement;
+        float x = centerX + radius * cos(angle);
+        float y = centerY + radius * sin(angle);
+        glVertex2f(x, y);
+    }
+    glEnd();
+}
+
+// Display callback function
+void display() {
+    // Clear the screen
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    // Set drawing color to black
+    glColor3f(0.0f, 0.0f, 0.0f);
+    
+    // Draw the square
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(-SQUARE_SIZE / 2.0f, -SQUARE_SIZE / 2.0f);  // Bottom-left
+    glVertex2f(SQUARE_SIZE / 2.0f, -SQUARE_SIZE / 2.0f);   // Bottom-right
+    glVertex2f(SQUARE_SIZE / 2.0f, SQUARE_SIZE / 2.0f);    // Top-right
+    glVertex2f(-SQUARE_SIZE / 2.0f, SQUARE_SIZE / 2.0f);   // Top-left
+    glEnd();
+    
+    // Set drawing color to blue for arcs
+    glColor3f(0.0f, 0.0f, 1.0f);
+    
+    // Draw arcs in each corner
+    for (int i = 1; i <= 4; i++) {
+        drawArc(i);
+    }
+    
+    // Flush drawing commands
+    glFlush();
+}
+
+// Reshape callback function
+void reshape(int width, int height) {
+    // Set the viewport to cover the entire window
+    glViewport(0, 0, width, height);
+    
+    // Set the projection matrix
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    
+    // Maintain aspect ratio
+    if (width <= height) {
+        glOrtho(-1.0, 1.0, -1.0 * height / width, 1.0 * height / width, -1.0, 1.0);
+    } else {
+        glOrtho(-1.0 * width / height, 1.0 * width / height, -1.0, 1.0, -1.0, 1.0);
+    }
+    
+    // Set the model view matrix
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
+
+// Main function
+int main(int argc, char** argv) {
+    // Initialize GLUT
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_SINGLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutInitWindowPosition(100, 100);
+    glutCreateWindow("Four Arcs in a Square");
+    
+    // Set the clear color to white
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    
+    // Register callbacks
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    
+    // Enter the GLUT main loop
+    glutMainLoop();
+    
+    return 0;
+}

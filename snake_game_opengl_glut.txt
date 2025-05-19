@@ -1,0 +1,344 @@
+#include <GL/glut.h>
+#include <ctime>
+#include <cstdlib>
+#include <vector>
+#include <algorithm>
+#include <iostream>
+
+// Game constants
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+const int GRID_SIZE = 20;
+const int GRID_WIDTH = WINDOW_WIDTH / GRID_SIZE;
+const int GRID_HEIGHT = WINDOW_HEIGHT / GRID_SIZE;
+const int INITIAL_SNAKE_LENGTH = 3;
+const int GAME_SPEED = 100; // milliseconds between updates
+
+// Directions
+enum Direction { UP, DOWN, LEFT, RIGHT };
+
+// Game state
+struct Point {
+    int x, y;
+    Point(int x = 0, int y = 0) : x(x), y(y) {}
+    bool operator==(const Point& p) const { return x == p.x && y == p.y; }
+};
+
+std::vector<Point> snake;
+Point food;
+Direction direction = RIGHT;
+bool gameOver = false;
+int score = 0;
+
+// Function prototypes
+void init();
+void display();
+void reshape(int w, int h);
+void timer(int value);
+void keyboard(unsigned char key, int x, int y);
+void specialKeys(int key, int x, int y);
+void placeFood();
+void moveSnake();
+void drawGrid();
+void drawSnake();
+void drawFood();
+void drawScore();
+void checkCollision();
+void resetGame();
+void drawGameOver();
+
+int main(int argc, char** argv) {
+    // Initialize GLUT
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutCreateWindow("Snake Game");
+    
+    // Initialize the game
+    init();
+    
+    // Register callbacks
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutKeyboardFunc(keyboard);
+    glutSpecialFunc(specialKeys);
+    glutTimerFunc(GAME_SPEED, timer, 0);
+    
+    // Enter the main loop
+    glutMainLoop();
+    
+    return 0;
+}
+
+void init() {
+    // Set up the projection
+    glClearColor(0.0, 0.0, 0.0, 1.0);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+    
+    // Seed random number generator
+    srand(static_cast<unsigned int>(time(nullptr)));
+    
+    // Initialize game
+    resetGame();
+}
+
+void resetGame() {
+    // Clear the snake
+    snake.clear();
+    
+    // Create initial snake in the middle of the screen
+    for (int i = 0; i < INITIAL_SNAKE_LENGTH; ++i) {
+        snake.push_back(Point(GRID_WIDTH / 2 - i, GRID_HEIGHT / 2));
+    }
+    
+    // Set initial direction
+    direction = RIGHT;
+    
+    // Place initial food
+    placeFood();
+    
+    // Reset game state
+    gameOver = false;
+    score = 0;
+}
+
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    if (gameOver) {
+        drawGameOver();
+    } else {
+        drawGrid();
+        drawSnake();
+        drawFood();
+        drawScore();
+    }
+    
+    glutSwapBuffers();
+}
+
+void reshape(int w, int h) {
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+void timer(int value) {
+    if (!gameOver) {
+        moveSnake();
+        checkCollision();
+    }
+    
+    glutPostRedisplay();
+    glutTimerFunc(GAME_SPEED, timer, 0);
+}
+
+void keyboard(unsigned char key, int x, int y) {
+    switch (key) {
+        case 'r':
+        case 'R':
+            // Reset the game
+            resetGame();
+            break;
+        case 'q':
+        case 'Q':
+        case 27: // ESC key
+            // Quit the game
+            exit(0);
+            break;
+    }
+}
+
+void specialKeys(int key, int x, int y) {
+    // Prevent moving in the opposite direction
+    switch (key) {
+        case GLUT_KEY_UP:
+            if (direction != DOWN) direction = UP;
+            break;
+        case GLUT_KEY_DOWN:
+            if (direction != UP) direction = DOWN;
+            break;
+        case GLUT_KEY_LEFT:
+            if (direction != RIGHT) direction = LEFT;
+            break;
+        case GLUT_KEY_RIGHT:
+            if (direction != LEFT) direction = RIGHT;
+            break;
+    }
+}
+
+void placeFood() {
+    // Find a position that's not occupied by the snake
+    Point newFood;
+    bool validPosition;
+    
+    do {
+        validPosition = true;
+        newFood.x = rand() % GRID_WIDTH;
+        newFood.y = rand() % GRID_HEIGHT;
+        
+        // Check if the position is occupied by the snake
+        for (const auto& segment : snake) {
+            if (segment.x == newFood.x && segment.y == newFood.y) {
+                validPosition = false;
+                break;
+            }
+        }
+    } while (!validPosition);
+    
+    food = newFood;
+}
+
+void moveSnake() {
+    // Save the current head
+    Point newHead = snake.front();
+    
+    // Update the head position based on direction
+    switch (direction) {
+        case UP:
+            newHead.y++;
+            break;
+        case DOWN:
+            newHead.y--;
+            break;
+        case LEFT:
+            newHead.x--;
+            break;
+        case RIGHT:
+            newHead.x++;
+            break;
+    }
+    
+    // Insert new head at the beginning
+    snake.insert(snake.begin(), newHead);
+    
+    // Check if the snake eats food
+    if (newHead.x == food.x && newHead.y == food.y) {
+        // Increase the score
+        score++;
+        
+        // Place new food
+        placeFood();
+    } else {
+        // Remove the tail
+        snake.pop_back();
+    }
+}
+
+void checkCollision() {
+    Point head = snake.front();
+    
+    // Check wall collision
+    if (head.x < 0 || head.x >= GRID_WIDTH || head.y < 0 || head.y >= GRID_HEIGHT) {
+        gameOver = true;
+        return;
+    }
+    
+    // Check self collision (start from the second segment)
+    for (size_t i = 1; i < snake.size(); ++i) {
+        if (head.x == snake[i].x && head.y == snake[i].y) {
+            gameOver = true;
+            return;
+        }
+    }
+}
+
+void drawGrid() {
+    // Draw grid lines (optional)
+    glColor3f(0.2f, 0.2f, 0.2f);
+    glBegin(GL_LINES);
+    
+    // Vertical lines
+    for (int i = 0; i <= GRID_WIDTH; ++i) {
+        glVertex2f(i * GRID_SIZE, 0);
+        glVertex2f(i * GRID_SIZE, WINDOW_HEIGHT);
+    }
+    
+    // Horizontal lines
+    for (int i = 0; i <= GRID_HEIGHT; ++i) {
+        glVertex2f(0, i * GRID_SIZE);
+        glVertex2f(WINDOW_WIDTH, i * GRID_SIZE);
+    }
+    
+    glEnd();
+}
+
+void drawSnake() {
+    // Draw snake head
+    glColor3f(0.0f, 1.0f, 0.0f); // Bright green for head
+    Point head = snake.front();
+    
+    glBegin(GL_QUADS);
+    glVertex2f(head.x * GRID_SIZE, head.y * GRID_SIZE);
+    glVertex2f((head.x + 1) * GRID_SIZE, head.y * GRID_SIZE);
+    glVertex2f((head.x + 1) * GRID_SIZE, (head.y + 1) * GRID_SIZE);
+    glVertex2f(head.x * GRID_SIZE, (head.y + 1) * GRID_SIZE);
+    glEnd();
+    
+    // Draw snake body
+    glColor3f(0.0f, 0.8f, 0.0f); // Darker green for body
+    for (size_t i = 1; i < snake.size(); ++i) {
+        glBegin(GL_QUADS);
+        glVertex2f(snake[i].x * GRID_SIZE, snake[i].y * GRID_SIZE);
+        glVertex2f((snake[i].x + 1) * GRID_SIZE, snake[i].y * GRID_SIZE);
+        glVertex2f((snake[i].x + 1) * GRID_SIZE, (snake[i].y + 1) * GRID_SIZE);
+        glVertex2f(snake[i].x * GRID_SIZE, (snake[i].y + 1) * GRID_SIZE);
+        glEnd();
+    }
+}
+
+void drawFood() {
+    glColor3f(1.0f, 0.0f, 0.0f); // Red for food
+    
+    // Draw a filled circle for food
+    glBegin(GL_POLYGON);
+    float cx = (food.x + 0.5) * GRID_SIZE;
+    float cy = (food.y + 0.5) * GRID_SIZE;
+    float r = GRID_SIZE / 2.0f * 0.8f; // Slightly smaller than grid cell
+    
+    for (int i = 0; i < 20; ++i) {
+        float angle = 2.0f * 3.14159f * i / 20;
+        glVertex2f(cx + r * cos(angle), cy + r * sin(angle));
+    }
+    
+    glEnd();
+}
+
+void drawScore() {
+    // Use bitmap fonts to display score
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glRasterPos2f(10, WINDOW_HEIGHT - 20);
+    
+    std::string scoreText = "Score: " + std::to_string(score);
+    for (char c : scoreText) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+    }
+}
+
+void drawGameOver() {
+    // Display game over message
+    glColor3f(1.0f, 0.0f, 0.0f);
+    
+    std::string gameOverText = "Game Over! Your Score: " + std::to_string(score);
+    std::string restartText = "Press 'R' to restart or 'Q' to quit";
+    
+    // Calculate position for centered text
+    float gameOverX = (WINDOW_WIDTH - gameOverText.length() * 9) / 2.0f;
+    float restartX = (WINDOW_WIDTH - restartText.length() * 9) / 2.0f;
+    
+    // Draw game over text
+    glRasterPos2f(gameOverX, WINDOW_HEIGHT / 2 + 20);
+    for (char c : gameOverText) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+    }
+    
+    // Draw restart instructions
+    glRasterPos2f(restartX, WINDOW_HEIGHT / 2 - 20);
+    for (char c : restartText) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+    }
+}
