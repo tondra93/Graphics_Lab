@@ -1,0 +1,29 @@
+void bresenham_Circle(float h, float k, float bashardh){
+
+    float xc = h, yc = k;
+    int r = round(bashardh);
+    int x = 0, y = r;
+    int d = 3 - 2 * r;
+
+    glBegin(GL_POINTS);
+    while (x <= y){
+        glVertex2f(xc + x, yc + y);
+        glVertex2f(xc - x, yc + y);
+        glVertex2f(xc + x, yc - y);
+        glVertex2f(xc - x, yc - y);
+        glVertex2f(xc + y, yc + x);
+        glVertex2f(xc - y, yc + x);
+        glVertex2f(xc + y, yc - x);
+        glVertex2f(xc - y, yc - x);
+
+        if (d < 0){
+            d = d + 4 * x + 6;
+        }else{
+            d = d + 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
+    }
+    glEnd();
+
+}

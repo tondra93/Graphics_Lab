@@ -1,0 +1,27 @@
+void midpoint_circle(float h, float k, float bashardh){
+    float xc = h, yc = k;
+    int r = round(bashardh);
+    int x = 0, y = r;
+    int d = 1 - r;
+
+    glBegin(GL_POINTS);
+    while (x <= y){
+        glVertex2f(xc + x, yc + y);
+        glVertex2f(xc - x, yc + y);
+        glVertex2f(xc + x, yc - y);
+        glVertex2f(xc - x, yc - y);
+        glVertex2f(xc + y, yc + x);
+        glVertex2f(xc - y, yc + x);
+        glVertex2f(xc + y, yc - x);
+        glVertex2f(xc - y, yc - x);
+
+        if (d < 0){
+            d = d + 2 * x + 3;
+        }else{
+            d = d + 2 * (x - y) + 5;
+            y--;
+        }
+        x++;
+    }
+    glEnd();
+}
